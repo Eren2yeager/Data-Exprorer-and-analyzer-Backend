@@ -22,11 +22,18 @@ export const listDatabases = async (req, res) => {
     const { databases } = await admin.listDatabases();
     
     // Format the response
-    const formattedDatabases = databases.map(db => ({
-      name: db.name,
-      sizeOnDisk: db.sizeOnDisk,
-      empty: db.empty
-    }));
+    const formattedDatabases = await Promise.all(
+      databases.map(async db => {
+        const dbClient = client.db(db.name);
+        const collections = await dbClient.listCollections().toArray();
+        return {
+          name: db.name,
+          sizeOnDisk: db.sizeOnDisk,
+          empty: db.empty,
+          collections: collections.map(c => c.name)
+        };
+      })
+    );
     
     return res.success(formattedDatabases, 'Databases retrieved successfully');
     

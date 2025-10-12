@@ -26,14 +26,36 @@ export const listCollections = async (req, res) => {
     const db = client.db(dbName);
     const collections = await db.listCollections().toArray();
     
-    return res.success(collections, `Collections in database '${dbName}' retrieved successfully`);
+    // Enhance each collection with size and document count
+    const enhancedCollections = await Promise.all(
+      collections.map(async (coll) => {
+        try {
+          const collRef = db.collection(coll.name);
+          const count = await collRef.estimatedDocumentCount();
+          const stats = await db.command({ collStats: coll.name });
+          return {
+            ...coll,
+            count,
+            size: stats.size || 0
+          };
+        } catch (err) {
+          // Fallback if stats fail
+          return {
+            ...coll,
+            count: 0,
+            size: 0
+          };
+        }
+      })
+    );
+    
+    return res.success(enhancedCollections, `Collections in database '${dbName}' retrieved successfully`);
     
   } catch (error) {
     console.error('List collections error:', error);
     return res.error(`Failed to list collections: ${error.message}`, 500, error);
   }
 };
-
 /**
  * Get collection statistics
  * @param {Object} req - Express request object

@@ -56,6 +56,7 @@ export const analyzeSchema = async (req, res) => {
   }
 };
 
+
 /**
  * Recursively analyze document structure
  * @param {Object} obj - Document or subdocument to analyze
@@ -114,8 +115,15 @@ function analyzeDocument(obj, path, schemaMap, fieldStats) {
         
         if (!schemaMap[fullPath]) {
           schemaMap[fullPath] = { type: [valueType] };
-        } else if (!schemaMap[fullPath].type.includes(valueType)) {
-          schemaMap[fullPath].type.push(valueType);
+        } else {
+          // Ensure type is always an array before using array methods
+          if (!Array.isArray(schemaMap[fullPath].type)) {
+            schemaMap[fullPath].type = [schemaMap[fullPath].type];
+          }
+          
+          if (!schemaMap[fullPath].type.includes(valueType)) {
+            schemaMap[fullPath].type.push(valueType);
+          }
         }
       }
     });
