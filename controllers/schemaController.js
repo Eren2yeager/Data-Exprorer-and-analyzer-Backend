@@ -249,6 +249,40 @@ export const createIndex = async (req, res) => {
     const client = await getMongoClient(connStr);
     const collection = client.db(dbName).collection(collName);
     
+    // Check if index with same keys already exists
+    const existingIndexes = await collection.indexes();
+    const keyString = JSON.stringify(key);
+    
+    const duplicateIndex = existingIndexes.find(idx => {
+      const idxKeyString = JSON.stringify(idx.key);
+      return idxKeyString === keyString;
+    });
+    
+    if (duplicateIndex) {
+      // If index exists with same keys, check if options are different
+      const optionsChanged = 
+        (options.unique !== undefined && options.unique !== duplicateIndex.unique) ||
+        (options.sparse !== undefined && options.sparse !== duplicateIndex.sparse) ||
+        (options.name && options.name !== duplicateIndex.name);
+      
+      if (optionsChanged) {
+        // Drop existing index and recreate with new options
+        await collection.dropIndex(duplicateIndex.name);
+        const result = await collection.createIndex(key, options);
+        
+        return res.success({
+          indexName: result,
+          key,
+          options,
+          recreated: true
+        }, `Index '${duplicateIndex.name}' recreated with new options`);
+      } else {
+        // Index already exists with same options
+        return res.error(`Index already exists: ${duplicateIndex.name}`, 409);
+      }
+    }
+    
+    // Create new index
     const result = await collection.createIndex(key, options);
     
     return res.success({
@@ -259,6 +293,12 @@ export const createIndex = async (req, res) => {
     
   } catch (error) {
     console.error('Create index error:', error.message);
+    
+    // Handle duplicate key error specifically
+    if (error.code === 11000 || error.message.includes('duplicate key')) {
+      return res.error(`Failed to create index: Index build failed: ${error.message}. Try dropping the existing index first.`, 409);
+    }
+    
     return res.error(`Failed to create index: ${error.message}`, 500);
   }
 };

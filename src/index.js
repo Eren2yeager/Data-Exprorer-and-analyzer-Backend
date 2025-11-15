@@ -7,7 +7,6 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { successResponse, errorResponse, errorHandler, notFound } from '../middleware/responseHandler.js';
 import { apiLimiter } from '../middleware/rateLimiter.js';
-import { httpLogger, logInfo, logError } from '../config/logger.js';
 
 // Import routes
 import connectionRoutes from '../routes/connectionRoutes.js';
@@ -23,8 +22,6 @@ dotenv.config();
 
 // Initialize Express app
 const app = express();
-const PORT = process.env.PORT || 4000;
-const DOMAIN = process.env.DOMAIN || 'localhost';
 
 // Middleware
 app.use(cors({
@@ -34,8 +31,15 @@ app.use(cors({
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 
-// HTTP request logging
-app.use(httpLogger);
+// Simple HTTP request logging
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    console.log(`${req.method} ${req.originalUrl} ${res.statusCode} ${duration}ms`);
+  });
+  next();
+});
 
 // Response handler middleware
 app.use(successResponse);
@@ -69,6 +73,9 @@ app.use(notFound);
 app.use(errorHandler);
 
 // Start server
+const PORT = process.env.PORT || 4000;
+const DOMAIN = process.env.DOMAIN || 'localhost';
+
 app.listen(PORT, () => {
   console.log(`
 ╔═══════════════════════════════════════════════════════════╗
@@ -78,33 +85,29 @@ app.listen(PORT, () => {
 ╚═══════════════════════════════════════════════════════════╝
   `);
   
-  logInfo('Server started successfully', {
-    port: PORT,
-    environment: process.env.NODE_ENV || 'development',
-    nodeVersion: process.version
-  });
+  console.log(`Server started - Port: ${PORT}, Environment: ${process.env.NODE_ENV || 'development'}, Node: ${process.version}`);
 });
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
-  logInfo('SIGTERM signal received: closing HTTP server');
+  console.log('SIGTERM signal received: closing HTTP server');
   process.exit(0);
 });
 
 process.on('SIGINT', () => {
-  logInfo('SIGINT signal received: closing HTTP server');
+  console.log('SIGINT signal received: closing HTTP server');
   process.exit(0);
 });
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (error) => {
-  logError('Uncaught Exception', error);
+  console.error('Uncaught Exception:', error);
   process.exit(1);
 });
 
 // Handle unhandled promise rejections
-process.on('unhandledRejection', (reason, promise) => {
-  logError('Unhandled Rejection', new Error(String(reason)), { promise });
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled Rejection:', reason);
 });
 
 export default app;

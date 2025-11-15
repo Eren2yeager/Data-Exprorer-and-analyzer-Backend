@@ -10,13 +10,11 @@ const clients = new Map();
 
 // Configuration
 const CONNECTION_TIMEOUT = 30000; // Increased to 30 seconds for Atlas
-const SERVER_SELECTION_TIMEOUT = 30000; // Increased to 30 seconds for Atlas
 const MAX_POOL_SIZE = 10;
 const CLIENT_IDLE_TIMEOUT = 30 * 60 * 1000; // 30 minutes
 const CLEANUP_INTERVAL = 10 * 60 * 1000; // 10 minutes
 
-// Default local MongoDB connection string
-export const LOCAL_MONGODB_URI = 'mongodb://localhost:27017';
+
 
 /**
  * Generate a secure hash key for the connection string
@@ -27,23 +25,7 @@ function getClientKey(connStr) {
   return crypto.createHash('sha256').update(connStr).digest('hex');
 }
 
-/**
- * Test if local MongoDB is available
- * @returns {Promise<boolean>} - True if local MongoDB is accessible
- */
-export async function testLocalMongoDB() {
-  try {
-    const client = new MongoClient(LOCAL_MONGODB_URI, {
-      connectTimeoutMS: 3000,
-      serverSelectionTimeoutMS: 3000,
-    });
-    await client.connect();
-    await client.close();
-    return true;
-  } catch (error) {
-    return false;
-  }
-}
+
 
 /**
  * Get or create a MongoDB client for the given connection string
@@ -71,7 +53,7 @@ export async function getMongoClient(connStr) {
   // Create new client if not exists
   const client = new MongoClient(connStr, {
     connectTimeoutMS: CONNECTION_TIMEOUT,
-    serverSelectionTimeoutMS: SERVER_SELECTION_TIMEOUT,
+    serverSelectionTimeoutMS: CONNECTION_TIMEOUT,
     socketTimeoutMS: 45000, // Socket timeout for long operations
     maxPoolSize: MAX_POOL_SIZE,
     retryWrites: true,
@@ -157,7 +139,19 @@ function cleanupIdleConnections() {
   });
 }
 
-// Start automatic cleanup of idle connections
-setInterval(cleanupIdleConnections, CLEANUP_INTERVAL);
+// Start automatic cleanup only in non-serverless environments
+const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.FUNCTION_NAME;
 
-console.log('Database connection manager initialized with automatic cleanup');
+if (!isServerless) {
+  setInterval(cleanupIdleConnections, CLEANUP_INTERVAL);
+  console.log('Database connection manager initialized with automatic cleanup');
+} else {
+  console.log('Database connection manager initialized (serverless mode)');
+}
+
+/**
+ * Manual cleanup for serverless environments
+ */
+export function performConnectionCleanup() {
+  cleanupIdleConnections();
+}

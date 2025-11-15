@@ -1,14 +1,19 @@
 /**
  * Rate Limiting Middleware
  * Protects API from abuse and DDoS attacks
+ * 
+ * NOTE: In serverless environments (Vercel), rate limiting uses in-memory storage
+ * which resets between function invocations. For production, consider using
+ * a distributed store like Redis or Vercel's Edge Config.
  */
 import rateLimit from 'express-rate-limit';
 
-// General API rate limiter
-// For development: increased limits to prevent blocking during testing
+const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.FUNCTION_NAME;
+
+// General API rate limiter - Very lenient to avoid blocking users
 export const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: process.env.NODE_ENV === 'production' ? 100 : 1000, // 1000 for dev, 100 for production
+  max: 1000, // Very high limit
   message: {
     success: false,
     message: 'Too many requests from this IP, please try again later',
@@ -19,10 +24,10 @@ export const apiLimiter = rateLimit({
   skip: (req) => process.env.DISABLE_RATE_LIMIT === 'true', // Allow disabling in dev
 });
 
-// Strict limiter for connection attempts
+// Lenient limiter for connection attempts
 export const connectionLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: process.env.NODE_ENV === 'production' ? 10 : 100, // 100 for dev, 10 for production
+  max: 200, // Very lenient
   message: {
     success: false,
     message: 'Too many connection attempts, please try again later',
@@ -33,10 +38,10 @@ export const connectionLimiter = rateLimit({
   skip: (req) => process.env.DISABLE_RATE_LIMIT === 'true',
 });
 
-// Moderate limiter for write operations
+// Lenient limiter for write operations
 export const writeLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
-  max: process.env.NODE_ENV === 'production' ? 30 : 200, // 200 for dev, 30 for production
+  max: 500, // Very lenient
   message: {
     success: false,
     message: 'Too many write operations, please slow down',

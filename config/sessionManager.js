@@ -1,22 +1,22 @@
 /**
- * Session Manager
- * Manages user sessions and connection string mapping with automatic cleanup
+ * Session Manager - Serverless Optimized
+ * In-memory session storage with on-demand cleanup
  */
 import { v4 as uuidv4 } from 'uuid';
 
 // Session storage: sessionId -> { connStr, createdAt, lastAccessed }
 const sessions = new Map();
 
-// Configuration
-const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
-const CLEANUP_INTERVAL = 5 * 60 * 1000; // 5 minutes
-const MAX_SESSIONS = 1000; // Prevent memory exhaustion
-
+// Configuration - hardcoded for serverless
+const SESSION_TIMEOUT = 2 * 60 * 60 * 1000; // 2 hours
+const MAX_SESSIONS = 5000;
+const CLEANUP_INTERVAL = 600000
 /**
  * Create a new session with connection string
  * @param {string} connStr - MongoDB connection string
  * @returns {string} - Session ID (token)
  */
+
 export function createSession(connStr) {
   // Check session limit
   if (sessions.size >= MAX_SESSIONS) {
@@ -44,6 +44,11 @@ export function createSession(connStr) {
  * @returns {string|null} - Connection string or null if not found/expired
  */
 export function getConnectionString(sessionId) {
+  // Occasional cleanup (10% chance)
+  if (Math.random() < 0.1) {
+    performCleanup();
+  }
+
   if (!sessionId || !sessions.has(sessionId)) {
     return null;
   }
@@ -88,15 +93,32 @@ export function getActiveSessions() {
  */
 function cleanupExpiredSessions() {
   const now = Date.now();
+  let cleaned = 0;
   for (const [sessionId, session] of sessions.entries()) {
     if (now - session.lastAccessed > SESSION_TIMEOUT) {
       sessions.delete(sessionId);
-      console.log(`Session ${sessionId} expired and removed`);
+      cleaned++;
     }
+  }
+  if (cleaned > 0) {
+    console.log(`Cleaned up ${cleaned} expired session(s)`);
   }
 }
 
-// Start automatic cleanup
-setInterval(cleanupExpiredSessions, CLEANUP_INTERVAL);
+// Start automatic cleanup only in non-serverless environments
+// In serverless, cleanup happens on-demand during getConnectionString calls
+const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.FUNCTION_NAME;
 
-console.log('Session manager initialized with automatic cleanup');
+if (!isServerless) {
+  setInterval(cleanupExpiredSessions, CLEANUP_INTERVAL);
+  console.log('Session manager initialized with automatic cleanup');
+} else {
+  console.log('Session manager initialized (serverless mode - on-demand cleanup)');
+}
+
+/**
+ * Perform on-demand cleanup (for serverless environments)
+ */
+export function performCleanup() {
+  cleanupExpiredSessions();
+}

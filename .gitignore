@@ -7,3 +7,6 @@
 # Logs
 /logs
 *.log
+
+# Vercel
+.vercel

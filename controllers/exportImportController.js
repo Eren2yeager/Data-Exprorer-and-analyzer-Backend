@@ -3,6 +3,50 @@
  * Handles data export and import operations
  */
 import { getMongoClient } from '../config/db.js';
+import { ObjectId } from 'mongodb';
+
+/**
+ * Convert string _id fields to ObjectId recursively
+ * @param {Object} doc - Document to process
+ * @returns {Object} - Processed document
+ */
+function convertIdsToObjectId(doc) {
+  if (!doc || typeof doc !== 'object') {
+    return doc;
+  }
+
+  const processed = Array.isArray(doc) ? [] : {};
+
+  for (const key in doc) {
+    const value = doc[key];
+
+    // Convert _id field if it's a valid ObjectId string
+    if (key === '_id' && typeof value === 'string') {
+      // Check if it's a valid 24-character hex string
+      if (value.length === 24 && /^[0-9a-fA-F]{24}$/.test(value)) {
+        try {
+          processed[key] = new ObjectId(value);
+        } catch (e) {
+          // If conversion fails, keep as string
+          processed[key] = value;
+        }
+      } else {
+        // Not a valid ObjectId format, keep as string
+        processed[key] = value;
+      }
+    }
+    // Recursively process nested objects and arrays
+    else if (value && typeof value === 'object') {
+      processed[key] = convertIdsToObjectId(value);
+    }
+    // Keep other values as-is
+    else {
+      processed[key] = value;
+    }
+  }
+
+  return processed;
+}
 
 /**
  * Export collection data to JSON
@@ -158,11 +202,14 @@ export const importFromJSON = async (req, res) => {
     const client = await getMongoClient(connStr);
     const collection = client.db(dbName).collection(collName);
     
+    // Convert string _id to ObjectId
+    const processedData = data.map(doc => convertIdsToObjectId(doc));
+    
     let result;
     
     if (mode === 'upsert') {
       // Upsert mode: update if exists, insert if not
-      const bulkOps = data.map(doc => ({
+      const bulkOps = processedData.map(doc => ({
         updateOne: {
           filter: { _id: doc._id },
           update: { $set: doc },
@@ -181,7 +228,7 @@ export const importFromJSON = async (req, res) => {
       
     } else {
       // Insert mode: insert all documents
-      result = await collection.insertMany(data, { ordered: false });
+      result = await collection.insertMany(processedData, { ordered: false });
       
       return res.success({
         insertedCount: result.insertedCount,
@@ -235,8 +282,19 @@ export const importFromCSV = async (req, res) => {
     const client = await getMongoClient(connStr);
     const collection = client.db(dbName).collection(collName);
     
+    // Convert string _id to ObjectId
+    const processedDocuments = documents.map(doc => {
+      const processed = convertIdsToObjectId(doc);
+      // Debug log first document
+      if (documents.indexOf(doc) === 0) {
+        console.log('Original _id:', doc._id, 'Type:', typeof doc._id);
+        console.log('Processed _id:', processed._id, 'Type:', typeof processed._id);
+      }
+      return processed;
+    });
+    
     // Insert documents
-    const result = await collection.insertMany(documents, { ordered: false });
+    const result = await collection.insertMany(processedDocuments, { ordered: false });
     
     return res.success({
       insertedCount: result.insertedCount,
@@ -260,7 +318,7 @@ function parseCSV(csv) {
   }
   
   // Parse header
-  const headers = parseCSVLine(lines[0]);
+  const headers = parseCSVLine(lines[0]).map(h => h.trim());
   
   // Parse data rows
   const documents = [];
@@ -275,8 +333,34 @@ function parseCSV(csv) {
     headers.forEach((header, index) => {
       let value = values[index];
       
-      // Try to parse as number
-      if (value && !isNaN(value)) {
+      // Skip empty values
+      if (!value || value === '') {
+        doc[header] = null;
+        return;
+      }
+      
+      // Clean up the value - remove surrounding quotes and unescape
+      value = value.trim();
+      
+      // Remove surrounding quotes if present
+      if (value.startsWith('"') && value.endsWith('"')) {
+        value = value.slice(1, -1);
+      }
+      
+      // Unescape escaped quotes
+      value = value.replace(/\\"/g, '"');
+      
+      // Remove backslashes before quotes
+      value = value.replace(/\\\\/g, '\\');
+      
+      // Keep _id as string (will be converted to ObjectId later)
+      if (header === '_id') {
+        doc[header] = value;
+        return;
+      }
+      
+      // Try to parse as number (but not if it looks like an ObjectId)
+      if (!isNaN(value) && value.length < 20) {
         value = Number(value);
       }
       // Try to parse as boolean
@@ -286,7 +370,7 @@ function parseCSV(csv) {
         value = false;
       }
       // Try to parse as JSON
-      else if (value && (value.startsWith('{') || value.startsWith('['))) {
+      else if (value.startsWith('{') || value.startsWith('[')) {
         try {
           value = JSON.parse(value);
         } catch (e) {

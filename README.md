@@ -1,250 +1,865 @@
-# MongoDB Data Explorer and Analyzer - Backend
+# MongoDB Compass Clone - Backend API
 
-A secure, production-ready Express.js backend for MongoDB data exploration and analysis. Features session-based authentication, rate limiting, and comprehensive validation.
+A powerful RESTful API backend for MongoDB database management, built with Node.js and Express. Provides comprehensive MongoDB operations including connection management, database operations, collection management, document CRUD, aggregation pipelines, and data import/export.
 
-## ✨ Key Features
+## 🚀 Features
 
-- **🔐 Session-Based Authentication**: Secure connection management with auto-expiring sessions
-- **🛡️ Request Validation**: Comprehensive Joi validation and NoSQL injection prevention
-- **🚫 Rate Limiting**: Three-tier rate limiting to prevent abuse
-- **🏠 Local MongoDB Support**: Auto-detection and quick connect to local instances
-- **⚡ Performance Optimized**: Connection pooling, lazy loading, and automatic cleanup
-- **📐 RESTful API**: Proper HTTP methods and intuitive endpoint structure
-- **💾 Memory Safe**: Automatic cleanup of idle connections and expired sessions
-- **🔒 Production Ready**: Secure error handling, no credential exposure
+### **Connection Management**
+- ✅ Session-based authentication
+- ✅ Multiple concurrent connections
+- ✅ Connection validation and testing
+- ✅ MongoDB Atlas support
+- ✅ Secure session management
 
-## 📋 Tech Stack
+### **Database Operations**
+- ✅ List all databases
+- ✅ Get database information and statistics
+- ✅ Create new databases
+- ✅ Drop databases
+- ✅ Database size and collection count
 
-- **Node.js**: JavaScript runtime
-- **Express.js**: Web framework
-- **MongoDB Native Driver**: Direct MongoDB interaction
-- **Joi**: Request validation and sanitization
-- **UUID**: Secure session token generation
-- **Express Rate Limit**: DDoS protection and rate limiting
-- **CORS**: Cross-Origin Resource Sharing support
-- **dotenv**: Environment variable management
+### **Collection Management**
+- ✅ List collections in a database
+- ✅ Get collection statistics
+- ✅ Create collections with options
+- ✅ Drop collections
+- ✅ Rename collections
+- ✅ Collection size and document count
 
-## 🛠️ Project Structure
+### **Document Operations**
+- ✅ Query documents with pagination
+- ✅ Advanced filtering and sorting
+- ✅ Get document by ID
+- ✅ Insert single or multiple documents
+- ✅ Update documents (full replacement)
+- ✅ Delete documents
+- ✅ Bulk operations support
+
+### **Schema Analysis**
+- ✅ Analyze collection schema
+- ✅ Field type detection
+- ✅ Field frequency analysis
+- ✅ Sample value extraction
+- ✅ Index management
+- ✅ Create and drop indexes
+
+### **Aggregation Pipeline**
+- ✅ Execute aggregation pipelines
+- ✅ Pipeline validation
+- ✅ Execution plan (explain)
+- ✅ Pipeline suggestions
+- ✅ Performance optimization
+
+### **Import/Export**
+- ✅ Export to JSON
+- ✅ Export to CSV
+- ✅ Import from JSON
+- ✅ Import from CSV
+- ✅ Bulk import with validation
+- ✅ Export with filtering
+
+## 📋 Prerequisites
+
+- **Node.js** >= 16.x
+- **npm** or **pnpm**
+- **MongoDB Atlas** account (or hosted MongoDB instance)
+
+## 🛠️ Installation
+
+### 1. Clone the repository
+```bash
+git clone <repository-url>
+cd Back-end
+```
+
+### 2. Install dependencies
+```bash
+npm install
+# or
+pnpm install
+```
+
+### 3. Configure environment variables
+Create a `.env` file in the root directory:
+
+```env
+# Server Configuration
+PORT=4000
+NODE_ENV=development
+
+# CORS Configuration
+CORS_ORIGIN=http://localhost:5173
+
+# Rate Limiting
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX_REQUESTS=100
+
+# Session Configuration
+SESSION_TIMEOUT_MS=3600000
+
+# MongoDB Configuration (optional defaults)
+MAX_POOL_SIZE=10
+MIN_POOL_SIZE=2
+```
+
+### 4. Start the server
+
+**Development mode (with auto-reload):**
+```bash
+npm run dev
+```
+
+**Production mode:**
+```bash
+npm start
+```
+
+The server will start on `http://localhost:4000`
+
+## 📁 Project Structure
 
 ```
 Back-end/
-├── config/                    # Configuration files
-│   ├── db.js                  # MongoDB connection management with pooling
-│   └── sessionManager.js      # Session lifecycle management
-├── controllers/               # API controllers
-│   ├── connectionController.js
-│   ├── databaseController.js
-│   ├── collectionController.js
-│   ├── documentController.js
-│   └── schemaController.js
-├── middleware/                # Express middleware
-│   ├── responseHandler.js     # Success/error response formatting
-│   ├── validation.js          # Joi validation schemas
-│   ├── sessionMiddleware.js   # Session extraction and validation
-│   └── rateLimiter.js         # Rate limiting configuration
-├── routes/                    # API routes
-│   ├── connectionRoutes.js
-│   ├── databaseRoutes.js
-│   ├── collectionRoutes.js
-│   ├── documentRoutes.js
-│   └── schemaRoutes.js
+├── config/
+│   ├── db.js                 # MongoDB connection management
+│   └── sessionManager.js     # Session management
+├── controllers/
+│   ├── connectionController.js    # Connection operations
+│   ├── databaseController.js      # Database operations
+│   ├── collectionController.js    # Collection operations
+│   ├── documentController.js      # Document CRUD operations
+│   ├── schemaController.js        # Schema analysis
+│   ├── aggregationController.js   # Aggregation pipelines
+│   └── exportImportController.js  # Import/Export operations
+├── middleware/
+│   ├── sessionMiddleware.js  # Session validation
+│   ├── responseHandler.js    # Standardized responses
+│   ├── rateLimiter.js        # Rate limiting
+│   └── validation.js         # Request validation
+├── routes/
+│   ├── connectionRoutes.js   # Connection endpoints
+│   ├── databaseRoutes.js     # Database endpoints
+│   ├── collectionRoutes.js   # Collection endpoints
+│   ├── documentRoutes.js     # Document endpoints
+│   ├── schemaRoutes.js       # Schema endpoints
+│   ├── aggregationRoutes.js  # Aggregation endpoints
+│   └── exportImportRoutes.js # Import/Export endpoints
 ├── src/
-│   └── index.js               # Application entry point
-├── API_DOCUMENTATION.md       # Complete API reference
-├── MIGRATION_GUIDE.md         # Migration from old API
-├── QUICK_REFERENCE.md         # Quick reference card
-└── PHASE1_COMPLETE.md         # Phase 1 summary
+│   └── index.js              # Application entry point
+├── .env                      # Environment variables
+├── .env.example              # Environment template
+├── package.json              # Dependencies
+└── README.md                 # This file
 ```
 
 ## 🔌 API Endpoints
 
-> **Note:** All endpoints (except `/connect` and `/health`) require a session ID in the header: `X-Session-Id: your-session-id`
+### **Connection Management**
 
-### Connection Management
-- `POST /api/connect` - Connect with connection string → Returns session ID
-- `POST /api/connect/local` - Quick connect to localhost:27017 → Returns session ID
-- `POST /api/disconnect` - Close session
-- `GET /api/sessions` - List active sessions
-- `GET /api/check-local` - Check if local MongoDB is available
+#### Connect to MongoDB
+```http
+POST /api/connect
+Content-Type: application/json
 
-### Database Operations
-- `GET /api/databases` - List all databases
-- `GET /api/databases/:dbName` - Get database stats
-- `POST /api/databases/:dbName` - Create a new database
-- `DELETE /api/databases/:dbName` - Drop a database
+{
+  "connStr": "mongodb+srv://user:pass@cluster.mongodb.net/database"
+}
 
-### Collection Management
-- `GET /api/databases/:dbName/collections` - List all collections
-- `GET /api/databases/:dbName/collections/:collName` - Get collection stats
-- `POST /api/databases/:dbName/collections` - Create collection
-- `DELETE /api/databases/:dbName/collections/:collName` - Drop collection
-- `PUT /api/databases/:dbName/collections/:collName/rename` - Rename collection
-
-### Document Operations
-- `POST /api/databases/:dbName/collections/:collName/documents/query` - Query documents with filters
-- `GET /api/databases/:dbName/collections/:collName/documents/:id` - Get a specific document
-- `POST /api/databases/:dbName/collections/:collName/documents` - Insert document(s)
-- `PUT /api/databases/:dbName/collections/:collName/documents/:id` - Update document
-- `DELETE /api/databases/:dbName/collections/:collName/documents/:id` - Delete document
-
-### Schema Analysis
-- `GET /api/databases/:dbName/collections/:collName/schema` - Analyze collection schema
-- `GET /api/databases/:dbName/collections/:collName/stats` - Get collection statistics
-
-## 🚦 Getting Started
-
-### Prerequisites
-- Node.js (v14 or higher)
-- npm, yarn, or pnpm
-- MongoDB (optional, for local testing)
-
-### Installation
-
-1. Navigate to the backend directory
-```bash
-cd Back-end
+Response:
+{
+  "success": true,
+  "data": {
+    "sessionId": "uuid",
+    "connected": true,
+    "serverInfo": { ... }
+  }
+}
 ```
 
-2. Install dependencies
-```bash
-pnpm install
-# or npm install
-# or yarn install
+#### Disconnect
+```http
+POST /api/disconnect
+X-Session-Id: <session-id>
+
+Response:
+{
+  "success": true,
+  "message": "Disconnected successfully"
+}
 ```
 
-3. Configure environment variables (`.env` file):
-```env
-NODE_ENV=development
-PORT=4000
-DOMAIN=localhost
-CORS_ORIGIN=*
-SESSION_TIMEOUT=1800000
-MAX_SESSIONS=1000
-CONNECTION_TIMEOUT=10000
-MAX_POOL_SIZE=10
+#### Get Active Sessions
+```http
+GET /api/sessions
+
+Response:
+{
+  "success": true,
+  "data": {
+    "sessions": [...]
+  }
+}
 ```
 
-4. Start the server
-```bash
-# Development mode with auto-reload
-pnpm dev
+---
 
-# Production mode
-pnpm start
+### **Database Operations**
+
+#### List Databases
+```http
+GET /api/databases
+X-Session-Id: <session-id>
+
+Response:
+{
+  "success": true,
+  "data": {
+    "databases": [
+      {
+        "name": "myDatabase",
+        "sizeOnDisk": 1234567,
+        "empty": false
+      }
+    ]
+  }
+}
 ```
 
-The server will be running at `http://localhost:4000`.
+#### Get Database Info
+```http
+GET /api/databases/:dbName
+X-Session-Id: <session-id>
 
-## 🧪 Testing
-
-```bash
-# Run API tests
-node test-api.js
-
-# Health check
-curl http://localhost:4000/health
+Response:
+{
+  "success": true,
+  "data": {
+    "name": "myDatabase",
+    "collections": 5,
+    "views": 0,
+    "dataSize": 1234567
+  }
+}
 ```
 
-## 🔧 Troubleshooting
+#### Create Database
+```http
+POST /api/databases/:dbName
+X-Session-Id: <session-id>
 
-### MongoDB Atlas Connection Timeout
+Response:
+{
+  "success": true,
+  "message": "Database created successfully"
+}
+```
 
-If you're experiencing `querySrv ETIMEOUT` errors when connecting to MongoDB Atlas:
+#### Drop Database
+```http
+DELETE /api/databases/:dbName
+X-Session-Id: <session-id>
 
-1. **Check Network Access**: Ensure your IP address is whitelisted in MongoDB Atlas
-   - Go to Network Access in Atlas dashboard
-   - Add your current IP or use `0.0.0.0/0` for testing (not recommended for production)
+Response:
+{
+  "success": true,
+  "message": "Database dropped successfully"
+}
+```
 
-2. **Verify Connection String**: Make sure your connection string is correct
-   - Format: `mongodb+srv://username:password@cluster.mongodb.net/`
-   - Ensure password is URL-encoded if it contains special characters
+---
 
-3. **Firewall/VPN Issues**: Some corporate firewalls or VPNs block MongoDB Atlas connections
-   - Try disabling VPN temporarily
-   - Check if port 27017 is open
+### **Collection Operations**
 
-4. **DNS Resolution**: The `querySrv` error indicates DNS lookup issues
-   - Try using a direct connection string instead of SRV format
-   - Format: `mongodb://host1:27017,host2:27017/`
+#### List Collections
+```http
+GET /api/databases/:dbName/collections
+X-Session-Id: <session-id>
 
-5. **Increased Timeouts**: The backend now uses 30-second timeouts for Atlas connections
-   - If issues persist, check your internet connection stability
+Response:
+{
+  "success": true,
+  "data": {
+    "collections": [
+      {
+        "name": "users",
+        "type": "collection"
+      }
+    ]
+  }
+}
+```
+
+#### Get Collection Stats
+```http
+GET /api/databases/:dbName/collections/:collName
+X-Session-Id: <session-id>
+
+Response:
+{
+  "success": true,
+  "data": {
+    "count": 1000,
+    "size": 123456,
+    "avgObjSize": 123,
+    "storageSize": 234567,
+    "indexes": 2
+  }
+}
+```
+
+#### Create Collection
+```http
+POST /api/databases/:dbName/collections
+X-Session-Id: <session-id>
+Content-Type: application/json
+
+{
+  "collName": "newCollection",
+  "options": {
+    "capped": false
+  }
+}
+```
+
+#### Drop Collection
+```http
+DELETE /api/databases/:dbName/collections/:collName
+X-Session-Id: <session-id>
+```
+
+#### Rename Collection
+```http
+PUT /api/databases/:dbName/collections/:collName/rename
+X-Session-Id: <session-id>
+Content-Type: application/json
+
+{
+  "newName": "renamedCollection"
+}
+```
+
+---
+
+### **Document Operations**
+
+#### Query Documents
+```http
+POST /api/databases/:dbName/collections/:collName/documents/query
+X-Session-Id: <session-id>
+Content-Type: application/json
+
+{
+  "filter": { "status": "active" },
+  "projection": { "name": 1, "email": 1 },
+  "sort": { "createdAt": -1 },
+  "page": 1,
+  "pageSize": 25
+}
+
+Response:
+{
+  "success": true,
+  "data": {
+    "documents": [...],
+    "pagination": {
+      "total": 100,
+      "page": 1,
+      "pageSize": 25,
+      "totalPages": 4
+    }
+  }
+}
+```
+
+#### Get Document by ID
+```http
+GET /api/databases/:dbName/collections/:collName/documents/:id
+X-Session-Id: <session-id>
+
+Response:
+{
+  "success": true,
+  "data": {
+    "_id": "...",
+    "name": "John Doe",
+    ...
+  }
+}
+```
+
+#### Insert Documents
+```http
+POST /api/databases/:dbName/collections/:collName/documents
+X-Session-Id: <session-id>
+Content-Type: application/json
+
+{
+  "documents": {
+    "name": "John Doe",
+    "email": "john@example.com"
+  }
+}
+
+// Or insert multiple:
+{
+  "documents": [
+    { "name": "John" },
+    { "name": "Jane" }
+  ]
+}
+```
+
+#### Update Document
+```http
+PUT /api/databases/:dbName/collections/:collName/documents/:id
+X-Session-Id: <session-id>
+Content-Type: application/json
+
+{
+  "update": {
+    "name": "Jane Doe",
+    "email": "jane@example.com"
+  }
+}
+
+Response:
+{
+  "success": true,
+  "data": {
+    "matchedCount": 1,
+    "modifiedCount": 1
+  }
+}
+```
+
+#### Delete Document
+```http
+DELETE /api/databases/:dbName/collections/:collName/documents/:id
+X-Session-Id: <session-id>
+
+Response:
+{
+  "success": true,
+  "data": {
+    "deletedCount": 1
+  }
+}
+```
+
+---
+
+### **Schema Analysis**
+
+#### Analyze Schema
+```http
+POST /api/databases/:dbName/collections/:collName/schema
+X-Session-Id: <session-id>
+Content-Type: application/json
+
+{
+  "sampleSize": 100
+}
+
+Response:
+{
+  "success": true,
+  "data": {
+    "fields": [
+      {
+        "name": "name",
+        "types": ["string"],
+        "count": 100,
+        "percentage": 100
+      }
+    ],
+    "totalDocuments": 100
+  }
+}
+```
+
+#### List Indexes
+```http
+GET /api/databases/:dbName/collections/:collName/indexes
+X-Session-Id: <session-id>
+
+Response:
+{
+  "success": true,
+  "data": {
+    "indexes": [
+      {
+        "name": "_id_",
+        "key": { "_id": 1 },
+        "unique": true
+      }
+    ]
+  }
+}
+```
+
+#### Create Index
+```http
+POST /api/databases/:dbName/collections/:collName/indexes
+X-Session-Id: <session-id>
+Content-Type: application/json
+
+{
+  "key": { "email": 1 },
+  "options": {
+    "unique": true,
+    "name": "email_unique"
+  }
+}
+```
+
+#### Drop Index
+```http
+DELETE /api/databases/:dbName/collections/:collName/indexes/:indexName
+X-Session-Id: <session-id>
+```
+
+---
+
+### **Aggregation Pipeline**
+
+#### Execute Pipeline
+```http
+POST /api/databases/:dbName/collections/:collName/aggregate
+X-Session-Id: <session-id>
+Content-Type: application/json
+
+{
+  "pipeline": [
+    { "$match": { "status": "active" } },
+    { "$group": { "_id": "$country", "count": { "$sum": 1 } } },
+    { "$sort": { "count": -1 } }
+  ],
+  "options": {}
+}
+
+Response:
+{
+  "success": true,
+  "data": {
+    "results": [...],
+    "count": 10,
+    "executionTime": 45
+  }
+}
+```
+
+#### Get Suggestions
+```http
+GET /api/databases/:dbName/collections/:collName/aggregate/suggestions
+X-Session-Id: <session-id>
+
+Response:
+{
+  "success": true,
+  "data": {
+    "suggestions": [...]
+  }
+}
+```
+
+#### Explain Pipeline
+```http
+POST /api/databases/:dbName/collections/:collName/aggregate/explain
+X-Session-Id: <session-id>
+Content-Type: application/json
+
+{
+  "pipeline": [...]
+}
+```
+
+---
+
+### **Import/Export**
+
+#### Export to JSON
+```http
+POST /api/databases/:dbName/collections/:collName/export/json
+X-Session-Id: <session-id>
+Content-Type: application/json
+
+{
+  "filter": {},
+  "limit": 1000
+}
+
+Response:
+{
+  "success": true,
+  "data": {
+    "data": [...],
+    "count": 100
+  }
+}
+```
+
+#### Export to CSV
+```http
+POST /api/databases/:dbName/collections/:collName/export/csv
+X-Session-Id: <session-id>
+Content-Type: application/json
+
+{
+  "filter": {},
+  "fields": ["name", "email"],
+  "limit": 1000
+}
+
+Response:
+{
+  "success": true,
+  "data": {
+    "csv": "name,email\nJohn,john@example.com\n...",
+    "count": 100
+  }
+}
+```
+
+#### Import JSON
+```http
+POST /api/databases/:dbName/collections/:collName/import/json
+X-Session-Id: <session-id>
+Content-Type: application/json
+
+{
+  "data": [
+    { "name": "John" },
+    { "name": "Jane" }
+  ],
+  "mode": "insert"
+}
+
+Response:
+{
+  "success": true,
+  "data": {
+    "insertedCount": 2
+  }
+}
+```
+
+#### Import CSV
+```http
+POST /api/databases/:dbName/collections/:collName/import/csv
+X-Session-Id: <session-id>
+Content-Type: application/json
+
+{
+  "csv": "name,email\nJohn,john@example.com",
+  "mode": "insert"
+}
+```
+
+---
 
 ## 🔒 Security Features
 
-- **Session-Based Auth**: Connection strings stored server-side only
-- **Rate Limiting**: Protection against DDoS and brute force attacks
-- **Input Validation**: Comprehensive Joi validation on all inputs
-- **NoSQL Injection Prevention**: Query sanitization and dangerous operator blocking
-- **Automatic Cleanup**: Expired sessions and idle connections removed automatically
-- **Secure Logging**: No sensitive data in logs
-- **System Protection**: Cannot drop admin/config/local databases
+### **Session Management**
+- UUID-based session IDs
+- Session timeout (1 hour default)
+- Automatic session cleanup
+- Session validation on every request
 
-## 📚 Documentation
+### **Rate Limiting**
+- Connection endpoint: 10 requests per 15 minutes
+- Other endpoints: 100 requests per 15 minutes
+- Configurable limits via environment variables
 
-- **[API Documentation](API_DOCUMENTATION.md)** - Complete API reference with examples
-- **[Migration Guide](MIGRATION_GUIDE.md)** - Migrate from old API to new session-based API
-- **[Quick Reference](QUICK_REFERENCE.md)** - Quick reference card for developers
-- **[Improvements Summary](IMPROVEMENTS_SUMMARY.md)** - Detailed list of all improvements
-- **[Phase 1 Complete](PHASE1_COMPLETE.md)** - Phase 1 completion summary
+### **Input Validation**
+- Request body validation using Joi
+- MongoDB query sanitization
+- NoSQL injection prevention
+- Connection string validation
 
-## 🚀 Quick Example
+### **Error Handling**
+- Standardized error responses
+- Detailed error logging
+- No sensitive data in error messages
+- Graceful error recovery
 
+## 🎯 Response Format
+
+All API responses follow a consistent format:
+
+### Success Response
+```json
+{
+  "success": true,
+  "data": { ... },
+  "message": "Operation successful",
+  "timestamp": "2024-01-15T10:30:00.000Z",
+  "statusCode": 200
+}
+```
+
+### Error Response
+```json
+{
+  "success": false,
+  "error": "Error message",
+  "timestamp": "2024-01-15T10:30:00.000Z",
+  "statusCode": 400
+}
+```
+
+## 🧪 Testing
+
+Run tests:
+```bash
+npm test
+```
+
+Run tests with coverage:
+```bash
+npm run test:coverage
+```
+
+## 📊 Performance
+
+- **Connection Pooling**: Reuses MongoDB connections
+- **Pagination**: Efficient document querying
+- **Indexing**: Supports index management
+- **Caching**: Session caching for faster validation
+- **Rate Limiting**: Prevents API abuse
+
+## 🚀 Deployment
+
+### **Environment Variables for Production**
+```env
+NODE_ENV=production
+PORT=4000
+CORS_ORIGIN=https://your-frontend-domain.com
+SESSION_TIMEOUT_MS=3600000
+```
+
+### **Deployment Platforms**
+
+#### **Railway**
+```bash
+railway login
+railway init
+railway up
+```
+
+#### **Render**
+1. Connect GitHub repository
+2. Set environment variables
+3. Deploy
+
+#### **Heroku**
+```bash
+heroku create your-app-name
+git push heroku main
+```
+
+## 🔧 Configuration
+
+### **MongoDB Connection Pool**
 ```javascript
-// 1. Connect to MongoDB
-const response = await fetch('http://localhost:4000/api/connect', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    connStr: 'mongodb+srv://user:pass@cluster.mongodb.net/'
-  })
-});
-
-const { sessionId } = (await response.json()).data;
-
-// 2. Store session ID
-localStorage.setItem('mongoSessionId', sessionId);
-
-// 3. Use session for all requests
-const databases = await fetch('http://localhost:4000/api/databases', {
-  headers: { 'X-Session-Id': sessionId }
-});
-
-// 4. Disconnect when done
-await fetch('http://localhost:4000/api/disconnect', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ sessionId })
+// config/db.js
+const client = new MongoClient(connStr, {
+  maxPoolSize: 10,
+  minPoolSize: 2,
+  maxIdleTimeMS: 30000
 });
 ```
 
-## 📝 License
+### **CORS Configuration**
+```javascript
+// src/index.js
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  credentials: true
+}));
+```
 
-This project is licensed under the ISC License.
+### **Rate Limiting**
+```javascript
+// middleware/rateLimiter.js
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100 // limit each IP to 100 requests per windowMs
+});
+```
+
+## 📝 Environment Variables Reference
+
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `PORT` | Server port | 4000 | No |
+| `NODE_ENV` | Environment | development | No |
+| `CORS_ORIGIN` | Allowed origin | http://localhost:5173 | No |
+| `RATE_LIMIT_WINDOW_MS` | Rate limit window | 900000 | No |
+| `RATE_LIMIT_MAX_REQUESTS` | Max requests | 100 | No |
+| `SESSION_TIMEOUT_MS` | Session timeout | 3600000 | No |
+
+## 🐛 Troubleshooting
+
+### **Connection Issues**
+```
+Error: Failed to connect to MongoDB
+```
+**Solution**: Check your MongoDB Atlas connection string and ensure IP whitelist is configured (0.0.0.0/0 for all IPs).
+
+### **Session Expired**
+```
+Error: Session not found or expired
+```
+**Solution**: Reconnect to MongoDB. Sessions expire after 1 hour of inactivity.
+
+### **Rate Limit Exceeded**
+```
+Error: Too many requests
+```
+**Solution**: Wait 15 minutes or adjust rate limit settings in `.env`.
+
+## 📚 Dependencies
+
+### **Core**
+- `express` - Web framework
+- `mongodb` - MongoDB driver
+- `cors` - CORS middleware
+- `dotenv` - Environment variables
+
+### **Middleware**
+- `express-rate-limit` - Rate limiting
+- `joi` - Validation
+- `uuid` - Session ID generation
+
+### **Utilities**
+- `winston` - Logging
+- `http-status-codes` - HTTP status codes
 
 ## 🤝 Contributing
 
-Contributions, issues, and feature requests are welcome!
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests
+5. Submit a pull request
 
-## ⚡ What's New
+## 📄 License
 
-### Phase 2 (Latest)
-- ✅ Advanced schema analysis with field statistics
-- ✅ Full aggregation pipeline support with validation
-- ✅ Export/Import (JSON & CSV)
-- ✅ Enhanced index management
-- ✅ Professional Winston logging system
-- ✅ Pipeline execution plans and suggestions
-- ✅ Bulk operations and upsert support
+MIT License - see LICENSE file for details
 
-### Phase 1
-- ✅ Session-based authentication (no more repeated connection strings)
-- ✅ Comprehensive request validation with Joi
-- ✅ Three-tier rate limiting
-- ✅ Connection lifecycle management with auto-cleanup
-- ✅ Local MongoDB support and auto-detection
-- ✅ NoSQL injection prevention
-- ✅ RESTful API design with proper HTTP methods
-- ✅ Performance optimizations (connection pooling, lazy loading)
-- ✅ Production-ready error handling
-- ✅ Complete documentation
+## 🔗 Related
+
+- **Frontend Repository**: https://github.com/Eren2yeager/Data-Exprorer-and-analyzer-React.git
+- **MongoDB Atlas**: https://www.mongodb.com/cloud/atlas
+- **MongoDB Documentation**: https://docs.mongodb.com/
+
+## 📞 Support
+
+For issues and questions:
+- Create an issue on GitHub
+- Check existing documentation
+- Review MongoDB Atlas documentation
+
+---
+
+**Built with ❤️ using Node.js and MongoDB**

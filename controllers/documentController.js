@@ -166,15 +166,24 @@ export const updateDocument = async (req, res) => {
     const client = await getMongoClient(connStr);
     const collection = client.db(dbName).collection(collName);
     
-    // Check if update has MongoDB operators, if not wrap in $set
-    const updateOperation = Object.keys(update)[0]?.startsWith('$') 
-      ? update 
-      : { $set: update };
+    // Check if update has MongoDB operators (like $set, $unset, etc.)
+    const hasOperators = Object.keys(update).some(key => key.startsWith('$'));
     
-    const result = await collection.updateOne(
-      { _id: objectId },
-      updateOperation
-    );
+    let result;
+    if (hasOperators) {
+      // Use updateOne for operator-based updates
+      result = await collection.updateOne(
+        { _id: objectId },
+        update
+      );
+    } else {
+      // Use replaceOne to completely replace the document (removes fields not in update)
+      // This allows field deletion to work properly
+      result = await collection.replaceOne(
+        { _id: objectId },
+        update
+      );
+    }
     
     return res.success({
       matchedCount: result.matchedCount,
