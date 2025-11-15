@@ -5,6 +5,7 @@
 import winston from 'winston';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -48,28 +49,48 @@ const consoleFormat = winston.format.combine(
 
 // Define transports
 const transports = [
-  // Console transport
+  // Console transport (always available)
   new winston.transports.Console({
     format: consoleFormat,
   }),
-  
-  // Error log file
-  new winston.transports.File({
-    filename: path.join(__dirname, '../logs/error.log'),
-    level: 'error',
-    format,
-    maxsize: 5242880, // 5MB
-    maxFiles: 5,
-  }),
-  
-  // Combined log file
-  new winston.transports.File({
-    filename: path.join(__dirname, '../logs/combined.log'),
-    format,
-    maxsize: 5242880, // 5MB
-    maxFiles: 5,
-  }),
 ];
+
+// Only add file transports in non-serverless environments
+// Vercel and other serverless platforms have read-only filesystems
+const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.FUNCTION_NAME;
+
+if (!isServerless) {
+  // Create logs directory if it doesn't exist (only in non-serverless)
+  const logsDir = path.join(__dirname, '../logs');
+  try {
+    if (!fs.existsSync(logsDir)) {
+      fs.mkdirSync(logsDir, { recursive: true });
+    }
+    
+    // Add file transports only if we can write to filesystem
+    transports.push(
+      // Error log file
+      new winston.transports.File({
+        filename: path.join(__dirname, '../logs/error.log'),
+        level: 'error',
+        format,
+        maxsize: 5242880, // 5MB
+        maxFiles: 5,
+      }),
+      
+      // Combined log file
+      new winston.transports.File({
+        filename: path.join(__dirname, '../logs/combined.log'),
+        format,
+        maxsize: 5242880, // 5MB
+        maxFiles: 5,
+      })
+    );
+  } catch (error) {
+    // Silently fail if we can't create logs directory (serverless environment)
+    console.warn('Unable to create logs directory, using console logging only');
+  }
+}
 
 // Create logger instance
 const logger = winston.createLogger({
@@ -79,13 +100,6 @@ const logger = winston.createLogger({
   transports,
   exitOnError: false,
 });
-
-// Create logs directory if it doesn't exist
-import fs from 'fs';
-const logsDir = path.join(__dirname, '../logs');
-if (!fs.existsSync(logsDir)) {
-  fs.mkdirSync(logsDir, { recursive: true });
-}
 
 // Helper functions for structured logging
 export const logInfo = (message, meta = {}) => {
