@@ -12,7 +12,7 @@ import { ObjectId } from 'mongodb';
  */
 export const queryDocuments = async (req, res) => {
   try {
-    const { connStr } = req.body;
+    const { connStr } = req; // From session middleware
     const { dbName, collName } = req.params;
     const { 
       filter = {}, 
@@ -21,10 +21,6 @@ export const queryDocuments = async (req, res) => {
       page = 1, 
       pageSize = 25 
     } = req.body;
-    
-    if (!connStr || !dbName || !collName) {
-      return res.error('Connection string, database name, and collection name are required', 400);
-    }
     
     const client = await getMongoClient(connStr);
     const collection = client.db(dbName).collection(collName);
@@ -39,6 +35,9 @@ export const queryDocuments = async (req, res) => {
       }
     }
     
+    // Sanitize filter to prevent NoSQL injection
+    parsedFilter = sanitizeFilter(parsedFilter);
+    
     // Calculate skip value for pagination
     const skip = (Math.max(1, page) - 1) * pageSize;
     
@@ -47,7 +46,7 @@ export const queryDocuments = async (req, res) => {
       .find(parsedFilter, { projection })
       .sort(sort)
       .skip(skip)
-      .limit(pageSize);
+      .limit(Math.min(pageSize, 100)); // Max 100 per page
     
     const documents = await cursor.toArray();
     
@@ -65,8 +64,8 @@ export const queryDocuments = async (req, res) => {
     }, 'Documents retrieved successfully');
     
   } catch (error) {
-    console.error('Query documents error:', error);
-    return res.error(`Failed to query documents: ${error.message}`, 500, error);
+    console.error('Query documents error:', error.message);
+    return res.error(`Failed to query documents: ${error.message}`, 500);
   }
 };
 
@@ -77,12 +76,8 @@ export const queryDocuments = async (req, res) => {
  */
 export const getDocumentById = async (req, res) => {
   try {
-    const { connStr } = req.body;
+    const { connStr } = req; // From session middleware
     const { dbName, collName, id } = req.params;
-    
-    if (!connStr || !dbName || !collName || !id) {
-      return res.error('Connection string, database name, collection name, and document ID are required', 400);
-    }
     
     let objectId;
     try {
@@ -102,8 +97,8 @@ export const getDocumentById = async (req, res) => {
     return res.success(document, 'Document retrieved successfully');
     
   } catch (error) {
-    console.error('Get document error:', error);
-    return res.error(`Failed to get document: ${error.message}`, 500, error);
+    console.error('Get document error:', error.message);
+    return res.error(`Failed to get document: ${error.message}`, 500);
   }
 };
 
@@ -114,12 +109,9 @@ export const getDocumentById = async (req, res) => {
  */
 export const insertDocuments = async (req, res) => {
   try {
-    const { connStr, documents } = req.body;
+    const { connStr } = req; // From session middleware
+    const { documents } = req.body;
     const { dbName, collName } = req.params;
-    
-    if (!connStr || !dbName || !collName || !documents) {
-      return res.error('Connection string, database name, collection name, and documents are required', 400);
-    }
     
     // Check if documents is an array or single document
     const isArray = Array.isArray(documents);
@@ -134,7 +126,7 @@ export const insertDocuments = async (req, res) => {
       return res.success({
         insertedCount: result.insertedCount,
         insertedIds: result.insertedIds
-      }, 'Documents inserted successfully');
+      }, `${result.insertedCount} documents inserted successfully`);
     } else {
       // Insert single document
       result = await collection.insertOne(documents);
@@ -144,8 +136,8 @@ export const insertDocuments = async (req, res) => {
     }
     
   } catch (error) {
-    console.error('Insert documents error:', error);
-    return res.error(`Failed to insert documents: ${error.message}`, 500, error);
+    console.error('Insert documents error:', error.message);
+    return res.error(`Failed to insert documents: ${error.message}`, 500);
   }
 };
 
@@ -156,11 +148,12 @@ export const insertDocuments = async (req, res) => {
  */
 export const updateDocument = async (req, res) => {
   try {
-    const { connStr, update } = req.body;
+    const { connStr } = req; // From session middleware
+    const { update } = req.body;
     const { dbName, collName, id } = req.params;
     
-    if (!connStr || !dbName || !collName || !id || !update) {
-      return res.error('Connection string, database name, collection name, document ID, and update data are required', 400);
+    if (!update) {
+      return res.error('Update data is required', 400);
     }
     
     let objectId;
@@ -190,8 +183,8 @@ export const updateDocument = async (req, res) => {
     }, 'Document updated successfully');
     
   } catch (error) {
-    console.error('Update document error:', error);
-    return res.error(`Failed to update document: ${error.message}`, 500, error);
+    console.error('Update document error:', error.message);
+    return res.error(`Failed to update document: ${error.message}`, 500);
   }
 };
 
@@ -202,12 +195,8 @@ export const updateDocument = async (req, res) => {
  */
 export const deleteDocument = async (req, res) => {
   try {
-    const { connStr } = req.body;
+    const { connStr } = req; // From session middleware
     const { dbName, collName, id } = req.params;
-    
-    if (!connStr || !dbName || !collName || !id) {
-      return res.error('Connection string, database name, collection name, and document ID are required', 400);
-    }
     
     let objectId;
     try {
@@ -229,7 +218,35 @@ export const deleteDocument = async (req, res) => {
     }, 'Document deleted successfully');
     
   } catch (error) {
-    console.error('Delete document error:', error);
-    return res.error(`Failed to delete document: ${error.message}`, 500, error);
+    console.error('Delete document error:', error.message);
+    return res.error(`Failed to delete document: ${error.message}`, 500);
   }
 };
+
+/**
+ * Sanitize MongoDB filter to prevent NoSQL injection
+ * @param {Object} filter - Filter object
+ * @returns {Object} - Sanitized filter
+ */
+function sanitizeFilter(filter) {
+  if (typeof filter !== 'object' || filter === null) {
+    return {};
+  }
+  
+  const sanitized = {};
+  for (const [key, value] of Object.entries(filter)) {
+    // Skip dangerous operators
+    if (key.startsWith('$where') || key.startsWith('$function')) {
+      continue;
+    }
+    
+    // Recursively sanitize nested objects
+    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+      sanitized[key] = sanitizeFilter(value);
+    } else {
+      sanitized[key] = value;
+    }
+  }
+  
+  return sanitized;
+}

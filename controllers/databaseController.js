@@ -11,35 +11,42 @@ import { getMongoClient } from '../config/db.js';
  */
 export const listDatabases = async (req, res) => {
   try {
-    const { connStr } = req.body;
-    
-    if (!connStr) {
-      return res.error('Connection string is required', 400);
-    }
+    const { connStr } = req; // From session middleware
     
     const client = await getMongoClient(connStr);
     const admin = client.db().admin();
     const { databases } = await admin.listDatabases();
     
-    // Format the response
+    // Format the response - only get collection count, not full list (performance)
     const formattedDatabases = await Promise.all(
       databases.map(async db => {
-        const dbClient = client.db(db.name);
-        const collections = await dbClient.listCollections().toArray();
-        return {
-          name: db.name,
-          sizeOnDisk: db.sizeOnDisk,
-          empty: db.empty,
-          collections: collections.map(c => c.name)
-        };
+        try {
+          const dbClient = client.db(db.name);
+          const collections = await dbClient.listCollections().toArray();
+          return {
+            name: db.name,
+            sizeOnDisk: db.sizeOnDisk,
+            empty: db.empty,
+            collectionCount: collections.length
+          };
+        } catch (error) {
+          // If we can't access a database, return basic info
+          return {
+            name: db.name,
+            sizeOnDisk: db.sizeOnDisk,
+            empty: db.empty,
+            collectionCount: 0,
+            error: 'Access denied or error reading database'
+          };
+        }
       })
     );
     
     return res.success(formattedDatabases, 'Databases retrieved successfully');
     
   } catch (error) {
-    console.error('List databases error:', error);
-    return res.error(`Failed to list databases: ${error.message}`, 500, error);
+    console.error('List databases error:', error.message);
+    return res.error(`Failed to list databases: ${error.message}`, 500);
   }
 };
 
@@ -50,16 +57,8 @@ export const listDatabases = async (req, res) => {
  */
 export const getDatabaseInfo = async (req, res) => {
   try {
-    const { connStr } = req.body;
+    const { connStr } = req; // From session middleware
     const { dbName } = req.params;
-    
-    if (!connStr) {
-      return res.error('Connection string is required', 400);
-    }
-    
-    if (!dbName) {
-      return res.error('Database name is required', 400);
-    }
     
     const client = await getMongoClient(connStr);
     const db = client.db(dbName);
@@ -68,8 +67,8 @@ export const getDatabaseInfo = async (req, res) => {
     return res.success(stats, `Database '${dbName}' stats retrieved successfully`);
     
   } catch (error) {
-    console.error('Get database info error:', error);
-    return res.error(`Failed to get database info: ${error.message}`, 500, error);
+    console.error('Get database info error:', error.message);
+    return res.error(`Failed to get database info: ${error.message}`, 500);
   }
 };
 
@@ -80,16 +79,8 @@ export const getDatabaseInfo = async (req, res) => {
  */
 export const createDatabase = async (req, res) => {
   try {
-    const { connStr } = req.body;
+    const { connStr } = req; // From session middleware
     const { dbName } = req.params;
-    
-    if (!connStr) {
-      return res.error('Connection string is required', 400);
-    }
-    
-    if (!dbName) {
-      return res.error('Database name is required', 400);
-    }
     
     // In MongoDB, databases are created when a collection is added
     // So we create a temporary collection
@@ -100,8 +91,8 @@ export const createDatabase = async (req, res) => {
     return res.success({ name: dbName }, `Database '${dbName}' created successfully`);
     
   } catch (error) {
-    console.error('Create database error:', error);
-    return res.error(`Failed to create database: ${error.message}`, 500, error);
+    console.error('Create database error:', error.message);
+    return res.error(`Failed to create database: ${error.message}`, 500);
   }
 };
 
@@ -112,16 +103,8 @@ export const createDatabase = async (req, res) => {
  */
 export const dropDatabase = async (req, res) => {
   try {
-    const { connStr } = req.body;
+    const { connStr } = req; // From session middleware
     const { dbName } = req.params;
-    
-    if (!connStr) {
-      return res.error('Connection string is required', 400);
-    }
-    
-    if (!dbName) {
-      return res.error('Database name is required', 400);
-    }
     
     // Prevent dropping admin or config databases
     if (['admin', 'config', 'local'].includes(dbName)) {
@@ -134,7 +117,7 @@ export const dropDatabase = async (req, res) => {
     return res.success(null, `Database '${dbName}' dropped successfully`);
     
   } catch (error) {
-    console.error('Drop database error:', error);
-    return res.error(`Failed to drop database: ${error.message}`, 500, error);
+    console.error('Drop database error:', error.message);
+    return res.error(`Failed to drop database: ${error.message}`, 500);
   }
 };

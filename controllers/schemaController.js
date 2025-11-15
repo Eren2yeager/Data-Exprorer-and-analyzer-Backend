@@ -11,25 +11,31 @@ import { getMongoClient } from '../config/db.js';
  */
 export const analyzeSchema = async (req, res) => {
   try {
-    const { connStr } = req.body;
+    const { connStr } = req; // From session middleware
     const { dbName, collName } = req.params;
     const { sampleSize = 100 } = req.body;
-    
-    if (!connStr || !dbName || !collName) {
-      return res.error('Connection string, database name, and collection name are required', 400);
-    }
     
     const client = await getMongoClient(connStr);
     const collection = client.db(dbName).collection(collName);
     
-    // Get sample documents
-    const sampleDocs = await collection.aggregate([
-      { $sample: { size: sampleSize } }
-    ]).toArray();
+    // Get total document count
+    const totalCount = await collection.estimatedDocumentCount();
     
-    if (sampleDocs.length === 0) {
-      return res.error('Collection is empty', 404);
+    if (totalCount === 0) {
+      return res.success({
+        schema: {},
+        fieldStats: {},
+        sampleSize: 0,
+        totalDocuments: 0,
+        isEmpty: true
+      }, 'Collection is empty');
     }
+    
+    // Get sample documents
+    const actualSampleSize = Math.min(sampleSize, totalCount, 1000); // Max 1000 samples
+    const sampleDocs = await collection.aggregate([
+      { $sample: { size: actualSampleSize } }
+    ]).toArray();
     
     // Analyze schema structure
     const schemaMap = {};
@@ -39,30 +45,44 @@ export const analyzeSchema = async (req, res) => {
       analyzeDocument(doc, '', schemaMap, fieldStats);
     });
     
-    // Calculate field frequencies
-    Object.keys(fieldStats).forEach(field => {
-      fieldStats[field].frequency = fieldStats[field].count / sampleDocs.length;
+    // Calculate field frequencies and prepare visualization data
+    const fields = Object.keys(fieldStats).map(field => {
+      const stats = fieldStats[field];
+      const frequency = stats.count / sampleDocs.length;
+      
+      return {
+        path: field,
+        count: stats.count,
+        frequency: frequency,
+        types: stats.types,
+        primaryType: Object.keys(stats.types).reduce((a, b) => 
+          stats.types[a] > stats.types[b] ? a : b
+        ),
+        topValues: Object.entries(stats.values || {})
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 10)
+          .map(([value, count]) => ({ value, count })),
+        isRequired: frequency > 0.95, // Field appears in >95% of documents
+        isUnique: stats.uniqueCount === stats.count
+      };
     });
     
     return res.success({
       schema: schemaMap,
-      fieldStats,
-      sampleSize: sampleDocs.length
+      fields: fields.sort((a, b) => b.frequency - a.frequency),
+      sampleSize: sampleDocs.length,
+      totalDocuments: totalCount,
+      samplingPercentage: (sampleDocs.length / totalCount * 100).toFixed(2)
     }, 'Schema analysis completed successfully');
     
   } catch (error) {
-    console.error('Schema analysis error:', error);
-    return res.error(`Failed to analyze schema: ${error.message}`, 500, error);
+    console.error('Schema analysis error:', error.message);
+    return res.error(`Failed to analyze schema: ${error.message}`, 500);
   }
 };
 
-
 /**
  * Recursively analyze document structure
- * @param {Object} obj - Document or subdocument to analyze
- * @param {String} path - Current field path
- * @param {Object} schemaMap - Schema structure map
- * @param {Object} fieldStats - Field statistics
  */
 function analyzeDocument(obj, path, schemaMap, fieldStats) {
   if (obj === null) {
@@ -71,13 +91,11 @@ function analyzeDocument(obj, path, schemaMap, fieldStats) {
   }
   
   if (Array.isArray(obj)) {
-    // Handle arrays
     if (!schemaMap[path]) {
       schemaMap[path] = { type: 'array', items: {} };
     }
     
-    // Analyze array items
-    obj.forEach((item, index) => {
+    obj.forEach((item) => {
       const itemType = getType(item);
       
       if (itemType === 'object') {
@@ -94,7 +112,6 @@ function analyzeDocument(obj, path, schemaMap, fieldStats) {
     });
     
   } else if (typeof obj === 'object') {
-    // Handle objects
     Object.keys(obj).forEach(key => {
       const fullPath = path ? `${path}.${key}` : key;
       const value = obj[key];
@@ -116,7 +133,6 @@ function analyzeDocument(obj, path, schemaMap, fieldStats) {
         if (!schemaMap[fullPath]) {
           schemaMap[fullPath] = { type: [valueType] };
         } else {
-          // Ensure type is always an array before using array methods
           if (!Array.isArray(schemaMap[fullPath].type)) {
             schemaMap[fullPath].type = [schemaMap[fullPath].type];
           }
@@ -132,10 +148,6 @@ function analyzeDocument(obj, path, schemaMap, fieldStats) {
 
 /**
  * Update field statistics
- * @param {String} path - Field path
- * @param {String} type - Field type
- * @param {*} value - Field value
- * @param {Object} fieldStats - Field statistics object
  */
 function updateFieldStats(path, type, value, fieldStats) {
   if (!path) return;
@@ -144,21 +156,25 @@ function updateFieldStats(path, type, value, fieldStats) {
     fieldStats[path] = {
       count: 1,
       types: { [type]: 1 },
-      values: {}
+      values: {},
+      uniqueValues: new Set(),
+      uniqueCount: 0
     };
   } else {
     fieldStats[path].count++;
     fieldStats[path].types[type] = (fieldStats[path].types[type] || 0) + 1;
   }
   
-  // Track value distribution (for non-object types)
+  // Track value distribution
   if (type !== 'object' && type !== 'array' && value !== null && value !== undefined) {
     const strValue = String(value);
     fieldStats[path].values[strValue] = (fieldStats[path].values[strValue] || 0) + 1;
+    fieldStats[path].uniqueValues.add(strValue);
+    fieldStats[path].uniqueCount = fieldStats[path].uniqueValues.size;
     
-    // Limit number of tracked values to prevent memory issues
+    // Limit tracked values
     const valueKeys = Object.keys(fieldStats[path].values);
-    if (valueKeys.length > 20) {
+    if (valueKeys.length > 50) {
       const minKey = valueKeys.reduce((min, key) => 
         fieldStats[path].values[key] < fieldStats[path].values[min] ? key : min, valueKeys[0]);
       delete fieldStats[path].values[minKey];
@@ -168,8 +184,6 @@ function updateFieldStats(path, type, value, fieldStats) {
 
 /**
  * Get type of a value with MongoDB specific types
- * @param {*} value - Value to check
- * @returns {String} Type name
  */
 function getType(value) {
   if (value === null) return 'null';
@@ -179,77 +193,57 @@ function getType(value) {
   const type = typeof value;
   if (type !== 'object') return type;
   
-  // Check for MongoDB specific types
-  if (value._bsontype === 'ObjectID') return 'objectId';
+  // MongoDB specific types
+  if (value._bsontype === 'ObjectID' || value.constructor?.name === 'ObjectId') return 'objectId';
   if (value instanceof Date) return 'date';
   if (value instanceof RegExp) return 'regex';
+  if (value._bsontype === 'Binary') return 'binary';
+  if (value._bsontype === 'Decimal128') return 'decimal';
   
   return 'object';
 }
 
 /**
- * Get collection statistics
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
- */
-export const getCollectionStats = async (req, res) => {
-  try {
-    const { connStr } = req.body;
-    const { dbName, collName } = req.params;
-    
-    if (!connStr || !dbName || !collName) {
-      return res.error('Connection string, database name, and collection name are required', 400);
-    }
-    
-    const client = await getMongoClient(connStr);
-    const stats = await client.db(dbName).command({ collStats: collName });
-    
-    return res.success(stats, 'Collection statistics retrieved successfully');
-    
-  } catch (error) {
-    console.error('Collection stats error:', error);
-    return res.error(`Failed to get collection statistics: ${error.message}`, 500, error);
-  }
-};
-
-/**
  * List indexes for a collection
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 export const listIndexes = async (req, res) => {
   try {
-    const { connStr } = req.body;
+    const { connStr } = req; // From session middleware
     const { dbName, collName } = req.params;
-    
-    if (!connStr || !dbName || !collName) {
-      return res.error('Connection string, database name, and collection name are required', 400);
-    }
     
     const client = await getMongoClient(connStr);
     const collection = client.db(dbName).collection(collName);
     const indexes = await collection.indexes();
     
-    return res.success(indexes, 'Indexes retrieved successfully');
+    // Enhance index information
+    const enhancedIndexes = indexes.map(index => ({
+      ...index,
+      size: index.key ? Object.keys(index.key).length : 0,
+      fields: index.key ? Object.keys(index.key) : [],
+      isUnique: index.unique || false,
+      isSparse: index.sparse || false,
+      isPartial: !!index.partialFilterExpression
+    }));
+    
+    return res.success(enhancedIndexes, 'Indexes retrieved successfully');
     
   } catch (error) {
-    console.error('List indexes error:', error);
-    return res.error(`Failed to list indexes: ${error.message}`, 500, error);
+    console.error('List indexes error:', error.message);
+    return res.error(`Failed to list indexes: ${error.message}`, 500);
   }
 };
 
 /**
  * Create index on a collection
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 export const createIndex = async (req, res) => {
   try {
-    const { connStr, key, options = {} } = req.body;
+    const { connStr } = req; // From session middleware
+    const { key, options = {} } = req.body;
     const { dbName, collName } = req.params;
     
-    if (!connStr || !dbName || !collName || !key) {
-      return res.error('Connection string, database name, collection name, and index key are required', 400);
+    if (!key) {
+      return res.error('Index key is required', 400);
     }
     
     const client = await getMongoClient(connStr);
@@ -258,27 +252,28 @@ export const createIndex = async (req, res) => {
     const result = await collection.createIndex(key, options);
     
     return res.success({
-      indexName: result
+      indexName: result,
+      key,
+      options
     }, 'Index created successfully');
     
   } catch (error) {
-    console.error('Create index error:', error);
-    return res.error(`Failed to create index: ${error.message}`, 500, error);
+    console.error('Create index error:', error.message);
+    return res.error(`Failed to create index: ${error.message}`, 500);
   }
 };
 
 /**
  * Drop index from a collection
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 export const dropIndex = async (req, res) => {
   try {
-    const { connStr } = req.body;
+    const { connStr } = req; // From session middleware
     const { dbName, collName, indexName } = req.params;
     
-    if (!connStr || !dbName || !collName || !indexName) {
-      return res.error('Connection string, database name, collection name, and index name are required', 400);
+    // Prevent dropping _id index
+    if (indexName === '_id_') {
+      return res.error('Cannot drop the _id index', 403);
     }
     
     const client = await getMongoClient(connStr);
@@ -291,7 +286,7 @@ export const dropIndex = async (req, res) => {
     }, 'Index dropped successfully');
     
   } catch (error) {
-    console.error('Drop index error:', error);
-    return res.error(`Failed to drop index: ${error.message}`, 500, error);
+    console.error('Drop index error:', error.message);
+    return res.error(`Failed to drop index: ${error.message}`, 500);
   }
 };

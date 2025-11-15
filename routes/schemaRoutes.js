@@ -5,21 +5,24 @@
 import express from 'express';
 import { 
   analyzeSchema, 
-  getCollectionStats, 
   listIndexes, 
   createIndex, 
   dropIndex 
 } from '../controllers/schemaController.js';
+import { extractSession } from '../middleware/sessionMiddleware.js';
+import { apiLimiter, writeLimiter } from '../middleware/rateLimiter.js';
 
 const router = express.Router();
 
+// All schema routes require session
+router.use(extractSession);
+
 // Schema analysis routes
-router.post('/databases/:dbName/collections/:collName/schema', analyzeSchema);
-router.post('/databases/:dbName/collections/:collName/stats', getCollectionStats);
+router.post('/databases/:dbName/collections/:collName/schema', apiLimiter, analyzeSchema);
 
 // Index management routes
-router.post('/databases/:dbName/collections/:collName/indexes', listIndexes);
-router.post('/databases/:dbName/collections/:collName/indexes/create', createIndex);
-router.delete('/databases/:dbName/collections/:collName/indexes/:indexName', dropIndex);
+router.get('/databases/:dbName/collections/:collName/indexes', apiLimiter, listIndexes);
+router.post('/databases/:dbName/collections/:collName/indexes', writeLimiter, createIndex);
+router.delete('/databases/:dbName/collections/:collName/indexes/:indexName', writeLimiter, dropIndex);
 
 export default router;
