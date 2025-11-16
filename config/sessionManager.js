@@ -1,6 +1,10 @@
 /**
  * Session Manager - Serverless Optimized
  * In-memory session storage with on-demand cleanup
+ * 
+ * IMPORTANT: In serverless environments, sessions are stored in memory
+ * and will be lost when the function cold-starts. For production,
+ * consider using Redis or a database for session persistence.
  */
 import { v4 as uuidv4 } from 'uuid';
 
@@ -8,9 +12,16 @@ import { v4 as uuidv4 } from 'uuid';
 const sessions = new Map();
 
 // Configuration - hardcoded for serverless
-const SESSION_TIMEOUT = 2 * 60 * 60 * 1000; // 2 hours (120 minutes)
-const MAX_SESSIONS = 5000;
+const SESSION_TIMEOUT = 24 * 60 * 60 * 1000; // 24 hours (increased for production stability)
+const MAX_SESSIONS = 10000; // Increased limit
 const CLEANUP_INTERVAL = 600000; // 10 minutes (not used in serverless)
+
+// Track if we're in serverless environment
+const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.FUNCTION_NAME;
+
+// Log session stats periodically
+let lastLogTime = Date.now();
+const LOG_INTERVAL = 5 * 60 * 1000; // 5 minutes
 /**
  * Create a new session with connection string
  * @param {string} connStr - MongoDB connection string
@@ -24,6 +35,7 @@ export function createSession(connStr) {
     const oldestSession = Array.from(sessions.entries())
       .sort((a, b) => a[1].lastAccessed - b[1].lastAccessed)[0];
     if (oldestSession) {
+      console.log(`[Session Manager] Max sessions reached (${MAX_SESSIONS}), removing oldest session`);
       sessions.delete(oldestSession[0]);
     }
   }
@@ -35,6 +47,8 @@ export function createSession(connStr) {
     lastAccessed: Date.now()
   });
 
+  console.log(`[Session Manager] Session created: ${sessionId.substring(0, 8)}... (Total: ${sessions.size})`);
+  
   return sessionId;
 }
 
@@ -49,14 +63,28 @@ export function getConnectionString(sessionId) {
     performCleanup();
   }
 
-  if (!sessionId || !sessions.has(sessionId)) {
+  // Log session stats periodically
+  if (Date.now() - lastLogTime > LOG_INTERVAL) {
+    console.log(`[Session Manager] Active sessions: ${sessions.size}, Serverless: ${isServerless}`);
+    lastLogTime = Date.now();
+  }
+
+  if (!sessionId) {
+    console.warn('[Session Manager] No session ID provided');
+    return null;
+  }
+
+  if (!sessions.has(sessionId)) {
+    console.warn(`[Session Manager] Session not found: ${sessionId.substring(0, 8)}... (Total sessions: ${sessions.size})`);
     return null;
   }
 
   const session = sessions.get(sessionId);
 
   // Check if session expired
-  if (Date.now() - session.lastAccessed > SESSION_TIMEOUT) {
+  const timeSinceLastAccess = Date.now() - session.lastAccessed;
+  if (timeSinceLastAccess > SESSION_TIMEOUT) {
+    console.log(`[Session Manager] Session expired: ${sessionId.substring(0, 8)}... (inactive for ${Math.round(timeSinceLastAccess / 1000 / 60)} minutes)`);
     sessions.delete(sessionId);
     return null;
   }

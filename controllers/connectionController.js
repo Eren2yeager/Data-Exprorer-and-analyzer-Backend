@@ -82,6 +82,36 @@ export const disconnectFromDatabase = async (req, res) => {
 };
 
 /**
+ * Validate if a session is still active
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+export const validateSession = async (req, res) => {
+  try {
+    const sessionId = req.body.sessionId || req.query.sessionId || req.headers['x-session-id'];
+    
+    if (!sessionId) {
+      return res.error('Session ID is required', 400);
+    }
+    
+    const { getConnectionString } = await import('../config/sessionManager.js');
+    const connStr = getConnectionString(sessionId);
+    
+    if (connStr) {
+      return res.success({
+        valid: true,
+        sessionId
+      }, 'Session is valid');
+    } else {
+      return res.error('Session is invalid or expired', 401);
+    }
+  } catch (error) {
+    console.error('Validate session error:', error.message);
+    return res.error(`Failed to validate session: ${error.message}`, 500);
+  }
+};
+
+/**
  * Get all active sessions
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
