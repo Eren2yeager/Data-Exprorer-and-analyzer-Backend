@@ -8,9 +8,9 @@ import { v4 as uuidv4 } from 'uuid';
 const sessions = new Map();
 
 // Configuration - hardcoded for serverless
-const SESSION_TIMEOUT = 2 * 60 * 60 * 1000; // 2 hours
+const SESSION_TIMEOUT = 2 * 60 * 60 * 1000; // 2 hours (120 minutes)
 const MAX_SESSIONS = 5000;
-const CLEANUP_INTERVAL = 600000
+const CLEANUP_INTERVAL = 600000; // 10 minutes (not used in serverless)
 /**
  * Create a new session with connection string
  * @param {string} connStr - MongoDB connection string
@@ -105,16 +105,7 @@ function cleanupExpiredSessions() {
   }
 }
 
-// Start automatic cleanup only in non-serverless environments
-// In serverless, cleanup happens on-demand during getConnectionString calls
-const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.FUNCTION_NAME;
 
-if (!isServerless) {
-  setInterval(cleanupExpiredSessions, CLEANUP_INTERVAL);
-  console.log('Session manager initialized with automatic cleanup');
-} else {
-  console.log('Session manager initialized (serverless mode - on-demand cleanup)');
-}
 
 /**
  * Perform on-demand cleanup (for serverless environments)

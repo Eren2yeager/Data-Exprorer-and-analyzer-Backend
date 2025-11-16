@@ -139,15 +139,6 @@ function cleanupIdleConnections() {
   });
 }
 
-// Start automatic cleanup only in non-serverless environments
-const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.FUNCTION_NAME;
-
-if (!isServerless) {
-  setInterval(cleanupIdleConnections, CLEANUP_INTERVAL);
-  console.log('Database connection manager initialized with automatic cleanup');
-} else {
-  console.log('Database connection manager initialized (serverless mode)');
-}
 
 /**
  * Manual cleanup for serverless environments
