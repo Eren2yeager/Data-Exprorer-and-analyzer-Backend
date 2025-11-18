@@ -9,6 +9,11 @@
  * @param {Object} res - Express response object
  * @param {Function} next - Express next function
  */
+
+import dotenv from 'dotenv';
+dotenv.config();
+
+
 export const successResponse = (req, res, next) => {
   // Add success response method to res object
   res.success = (data = null, message = 'Operation successful', statusCode = 200) => {

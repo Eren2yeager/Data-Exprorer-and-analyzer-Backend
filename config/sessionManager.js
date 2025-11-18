@@ -7,12 +7,13 @@
  * consider using Redis or a database for session persistence.
  */
 import { v4 as uuidv4 } from 'uuid';
-
+import dotenv from 'dotenv';
+dotenv.config();
 // Session storage: sessionId -> { connStr, createdAt, lastAccessed }
 const sessions = new Map();
 
 // Configuration - hardcoded for serverless
-const SESSION_TIMEOUT = 24 * 60 * 60 * 1000; // 24 hours (increased for production stability)
+const SESSION_TIMEOUT = 2 * 60 * 60 * 1000; // 2 hours
 const MAX_SESSIONS = 10000; // Increased limit
 const CLEANUP_INTERVAL = 600000; // 10 minutes (not used in serverless)
 

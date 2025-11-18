@@ -7,7 +7,8 @@
  * a distributed store like Redis or Vercel's Edge Config.
  */
 import rateLimit from 'express-rate-limit';
-
+import dotenv from 'dotenv';
+dotenv.config();
 /**
  * Custom handler to include retry time in error message
  */
@@ -31,31 +32,31 @@ const createRateLimitHandler = (windowMs, limitType) => {
   };
 };
 
-// General API rate limiter - Very lenient to avoid blocking users
+// General API rate limiter - 5 minute penalty
 export const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 5 * 60 * 1000, // 5 minutes
   max: 1000, // Very high limit
-  handler: createRateLimitHandler(15 * 60 * 1000, 'requests'),
+  handler: createRateLimitHandler(5 * 60 * 1000, 'requests'),
   standardHeaders: true,
   legacyHeaders: false,
   skip: () => process.env.DISABLE_RATE_LIMIT === 'true', // Allow disabling in dev
 });
 
-// Lenient limiter for connection attempts
+// Connection limiter - 5 minute penalty
 export const connectionLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000, // 10 minutes
+  windowMs: 5 * 60 * 1000, // 5 minutes
   max: 200, // Very lenient
-  handler: createRateLimitHandler(10 * 60 * 1000, 'connection attempts'),
+  handler: createRateLimitHandler(5 * 60 * 1000, 'connection attempts'),
   standardHeaders: true,
   legacyHeaders: false,
   skip: () => process.env.DISABLE_RATE_LIMIT === 'true',
 });
 
-// Lenient limiter for write operations
+// Write operations limiter - 5 minute penalty
 export const writeLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000, // 1 minute
+  windowMs: 5 * 60 * 1000, // 5 minutes
   max: 500, // Very lenient
-  handler: createRateLimitHandler(1 * 60 * 1000, 'write operations'),
+  handler: createRateLimitHandler(5 * 60 * 1000, 'write operations'),
   standardHeaders: true,
   legacyHeaders: false,
   skip: () => process.env.DISABLE_RATE_LIMIT === 'true',

@@ -3,7 +3,8 @@
  * Handles MongoDB connection management operations
  */
 import { getMongoClient, closeMongoClient, getActiveConnections } from '../config/db.js';
-import { createSession, deleteSession, getActiveSessions } from '../config/sessionManager.js';
+// Use database-backed session manager for serverless persistence
+import { createSession, deleteSession, getActiveSessions } from '../config/sessionManagerDB.js';
 
 /**
  * Test and establish a MongoDB connection
@@ -26,8 +27,8 @@ export const connectToDatabase = async (req, res) => {
     const admin = client.db().admin();
     const serverInfo = await admin.serverStatus();
     
-    // Create session and return session ID
-    const sessionId = createSession(connStr);
+    // Create session and return session ID (now async with DB storage)
+    const sessionId = await createSession(connStr);
     
     // Return connection information with session ID
     return res.success({
@@ -94,8 +95,8 @@ export const validateSession = async (req, res) => {
       return res.error('Session ID is required', 400);
     }
     
-    const { getConnectionString } = await import('../config/sessionManager.js');
-    const connStr = getConnectionString(sessionId);
+    const { getConnectionString } = await import('../config/sessionManagerDB.js');
+    const connStr = await getConnectionString(sessionId);
     
     if (connStr) {
       return res.success({
